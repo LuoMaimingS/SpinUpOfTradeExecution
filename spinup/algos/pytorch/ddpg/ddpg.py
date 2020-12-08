@@ -7,6 +7,8 @@ import time
 import spinup.algos.pytorch.ddpg.core as core
 from spinup.utils.logx import EpochLogger
 
+from grad.envs import ExeEnv
+
 
 class ReplayBuffer:
     """
@@ -44,7 +46,7 @@ class ReplayBuffer:
 def ddpg(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0, 
          steps_per_epoch=4000, epochs=100, replay_size=int(1e6), gamma=0.99, 
          polyak=0.995, pi_lr=1e-3, q_lr=1e-3, batch_size=100, start_steps=10000, 
-         update_after=1000, update_every=50, act_noise=0.1, num_test_episodes=10, 
+         update_after=1000, update_every=50, act_noise=0.1, num_test_episodes=2400,
          max_ep_len=1000, logger_kwargs=dict(), save_freq=1):
     """
     Deep Deterministic Policy Gradient (DDPG)
@@ -230,13 +232,14 @@ def ddpg(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
 
     def test_agent():
         for j in range(num_test_episodes):
-            o, d, ep_ret, ep_len = test_env.reset(), False, 0, 0
+            o, d, ep_ret, ep_len, ep_cost = test_env.reset(), False, 0, 0, 0
             while not(d or (ep_len == max_ep_len)):
-                # Take deterministic actions at test time (noise_scale=0)
-                o, r, d, _ = test_env.step(get_action(o, 0))
+                # Take deterministic actions at test time
+                o, r, d, info = test_env.step(get_action(o, True))
                 ep_ret += r
                 ep_len += 1
-            logger.store(TestEpRet=ep_ret, TestEpLen=ep_len)
+                ep_cost = info['cost'] * 10000
+            logger.store(TestEpRet=ep_ret, TestEpLen=ep_len, TestEpCost=ep_cost)
 
     # Prepare for interaction with environment
     total_steps = steps_per_epoch * epochs
@@ -299,6 +302,7 @@ def ddpg(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
             logger.log_tabular('TestEpRet', with_min_and_max=True)
             logger.log_tabular('EpLen', average_only=True)
             logger.log_tabular('TestEpLen', average_only=True)
+            logger.log_tabular('TestEpCost', average_only=True)
             logger.log_tabular('TotalEnvInteracts', t)
             logger.log_tabular('QVals', with_min_and_max=True)
             logger.log_tabular('LossPi', average_only=True)
@@ -306,10 +310,11 @@ def ddpg(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
             logger.log_tabular('Time', time.time()-start_time)
             logger.dump_tabular()
 
+
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('--env', type=str, default='HalfCheetah-v2')
+    parser.add_argument('--env', type=str, default='td')
     parser.add_argument('--hid', type=int, default=256)
     parser.add_argument('--l', type=int, default=2)
     parser.add_argument('--gamma', type=float, default=0.99)
@@ -321,7 +326,15 @@ if __name__ == '__main__':
     from spinup.utils.run_utils import setup_logger_kwargs
     logger_kwargs = setup_logger_kwargs(args.exp_name, args.seed)
 
-    ddpg(lambda : gym.make(args.env), actor_critic=core.MLPActorCritic,
-         ac_kwargs=dict(hidden_sizes=[args.hid]*args.l), 
-         gamma=args.gamma, seed=args.seed, epochs=args.epochs,
-         logger_kwargs=logger_kwargs)
+    if args.env == "td":
+        raw_data = np.load('/home/leiyu/spinningup/grad/000012.npz')
+        data = raw_data['data'][:2400]
+        ddpg(lambda: ExeEnv(10000, 2, 4, 4, data), actor_critic=core.MLPActorCritic,
+             ac_kwargs=dict(hidden_sizes=[args.hid] * args.l),
+             gamma=args.gamma, seed=args.seed, epochs=args.epochs,
+             logger_kwargs=logger_kwargs)
+    else:
+        ddpg(lambda: gym.make(args.env), actor_critic=core.MLPActorCritic,
+             ac_kwargs=dict(hidden_sizes=[args.hid] * args.l),
+             gamma=args.gamma, seed=args.seed, epochs=args.epochs,
+             logger_kwargs=logger_kwargs)

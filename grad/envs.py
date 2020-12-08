@@ -154,7 +154,7 @@ class ExeEnv(gym.Env):
 
         i = int(np.ceil(self.rest_vol / self.V) * self.I)
         done = (self.t == self.T)
-        return (self.t, i), step_reward, done, {'cost': cost_ratio}
+        return (self.T - self.t, i), step_reward, done, {'cost': cost_ratio}
 
     def seed(self, seed=None):
         pass
@@ -172,23 +172,25 @@ if __name__ == '__main__':
                 print(data[t][i][j], end=' ')
             print("")
     """
-    env = ExeEnv(5000, 8, 4, 4, data)
+    env = ExeEnv(10000, 2, 4, 4, data)
     ob = env.reset()
     a = env.action_space.sample()
     r = 0
     c = 0
     ep_r = 0
+    ct = 0
     for i in range(2400):
         for _ in range(4):
-            ob, rwd, don, info = env.step(0.1)
+            ob, rwd, don, info = env.step(0.0)
             r += rwd
             ep_r += rwd
             if don:
                 c += 1
+                ct += info['cost']
                 env.reset()
                 if np.abs(ep_r) > 200: print(i)
                 ep_r = 0
-    print(r / c)
+    print(r / c, ct / c)
 
 
 
