@@ -81,7 +81,7 @@ def setup_logger_kwargs(exp_name, stock, seed=None, data_dir=None, datestamp=Fal
         relpath = osp.join(relpath, subfolder)
 
     data_dir = data_dir or DEFAULT_DATA_DIR
-    logger_kwargs = dict(output_dir=osp.join(data_dir, stock, relpath),
+    logger_kwargs = dict(output_dir=osp.join(data_dir, str(stock), relpath),
                          exp_name=exp_name)
     return logger_kwargs
 
@@ -143,7 +143,7 @@ def call_experiment(exp_name, thunk, seed=0, num_cpu=1, data_dir=None,
 
     # Set up logger output directory
     if 'logger_kwargs' not in kwargs:
-        kwargs['logger_kwargs'] = setup_logger_kwargs(exp_name, seed, data_dir, datestamp)
+        kwargs['logger_kwargs'] = setup_logger_kwargs(exp_name, kwargs['stock'], seed, data_dir, datestamp)
     else:
         print('Note: Call experiment is not handling logger_kwargs.\n')
 
@@ -161,9 +161,16 @@ def call_experiment(exp_name, thunk, seed=0, num_cpu=1, data_dir=None,
                 from spinup.user_config import ENV_DATA_PATH
                 data_path = ENV_DATA_PATH + '0000{}.npz'.format(stock)
                 raw_data = np.load(data_path)
-                data = raw_data['data'][:2400]
+                raw_data = raw_data['data']
+                data = raw_data[:2400]
                 print('data length: {} -> {} + {}'.format(raw_data.shape[0], 2400, raw_data.shape[0] - 2400))
-                kwargs['env_fn'] = lambda: ExeEnv(kwargs['V'], kwargs['H'], kwargs['T'], kwargs['I'], data)
+                env_args = deepcopy(kwargs)
+                kwargs['env_fn'] = lambda: ExeEnv(env_args['V'], env_args['H'], env_args['T'], env_args['I'], data)
+                del kwargs['stock']
+                del kwargs['V']
+                del kwargs['H']
+                del kwargs['T']
+                del kwargs['I']
             else:
                 import gym
                 kwargs['env_fn'] = lambda : gym.make(env_name)
