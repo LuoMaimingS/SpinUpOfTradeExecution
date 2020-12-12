@@ -7,7 +7,6 @@ import gym
 import time
 import spinup.algos.pytorch.sac.core as core
 from spinup.utils.logx import EpochLogger
-
 from grad.envs import ExeEnv
 
 
@@ -303,7 +302,7 @@ def sac(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
         # Ignore the "done" signal if it comes from hitting the time
         # horizon (that is, when it's an artificial terminal signal
         # that isn't based on the agent's state)
-        d = False if ep_len==max_ep_len else d
+        d = False if ep_len == max_ep_len else d
 
         # Store experience to replay buffer
         replay_buffer.store(o, a, r, o2, d)
@@ -364,15 +363,26 @@ if __name__ == '__main__':
     parser.add_argument('--exp_name', type=str, default='sac')
     args = parser.parse_args()
 
+    parser.add_argument('--V', type=int, default=5000)
+    parser.add_argument('--H', type=int, default=2)
+    parser.add_argument('--T', type=int, default=4)
+    parser.add_argument('--I', type=int, default=4)
+    parser.add_argument('--stock', type=int, default='12')
+
     from spinup.utils.run_utils import setup_logger_kwargs
-    logger_kwargs = setup_logger_kwargs(args.exp_name, args.seed)
+
+    args.exp_name = args.exp_name + '_V{}_H{}_T{}_I{}'.format(args.V / 1000, args.H, args.T, args.I)
+    logger_kwargs = setup_logger_kwargs(args.exp_name, args.stock, args.seed)
 
     torch.set_num_threads(torch.get_num_threads())
 
     if args.env == "td":
-        raw_data = np.load('/home/leiyu/spinningup/grad/000012.npz')
+        assert isinstance(args.stock, str) and len(args.stock) == 2
+        data_path = '/home/leiyu/spinningup/grad/' + '0000{}.npz'.format(args.stock)
+        raw_data = np.load(data_path)
         data = raw_data['data'][:2400]
-        sac(lambda: ExeEnv(10000, 2, 4, 4, data), actor_critic=core.MLPActorCritic,
+        print('data length: {} -> {} + {}'.format(raw_data.shape[0], 2400, raw_data.shape[0] - 2400))
+        sac(lambda: ExeEnv(args.V, args.H, args.T, args.I, data), actor_critic=core.MLPActorCritic,
             ac_kwargs=dict(hidden_sizes=[args.hid]*args.l),
             gamma=args.gamma, seed=args.seed, epochs=args.epochs,
             logger_kwargs=logger_kwargs)

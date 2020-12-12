@@ -22,7 +22,7 @@ import zlib
 
 DIV_LINE_WIDTH = 80
 
-def setup_logger_kwargs(exp_name, seed=None, data_dir=None, datestamp=False):
+def setup_logger_kwargs(exp_name, stock, seed=None, data_dir=None, datestamp=False):
     """
     Sets up the output_dir for a logger and returns a dict for logger kwargs.
 
@@ -81,7 +81,7 @@ def setup_logger_kwargs(exp_name, seed=None, data_dir=None, datestamp=False):
         relpath = osp.join(relpath, subfolder)
 
     data_dir = data_dir or DEFAULT_DATA_DIR
-    logger_kwargs = dict(output_dir=osp.join(data_dir, relpath), 
+    logger_kwargs = dict(output_dir=osp.join(data_dir, stock, relpath),
                          exp_name=exp_name)
     return logger_kwargs
 
@@ -150,9 +150,23 @@ def call_experiment(exp_name, thunk, seed=0, num_cpu=1, data_dir=None,
     def thunk_plus():
         # Make 'env_fn' from 'env_name'
         if 'env_name' in kwargs:
-            import gym
             env_name = kwargs['env_name']
-            kwargs['env_fn'] = lambda : gym.make(env_name)
+            if env_name == "td":
+                assert 'stock' in kwargs
+                assert 'V' in kwargs and 'H' in kwargs
+                assert 'T' in kwargs and 'I' in kwargs
+                stock = str(kwargs['stock'])
+
+                from grad.envs import ExeEnv
+                from spinup.user_config import ENV_DATA_PATH
+                data_path = ENV_DATA_PATH + '0000{}.npz'.format(stock)
+                raw_data = np.load(data_path)
+                data = raw_data['data'][:2400]
+                print('data length: {} -> {} + {}'.format(raw_data.shape[0], 2400, raw_data.shape[0] - 2400))
+                kwargs['env_fn'] = lambda: ExeEnv(kwargs['V'], kwargs['H'], kwargs['T'], kwargs['I'], data)
+            else:
+                import gym
+                kwargs['env_fn'] = lambda : gym.make(env_name)
             del kwargs['env_name']
 
         # Fork into multiple processes
@@ -508,7 +522,6 @@ class ExperimentGrid:
         joined_var_names = '\n'.join(var_names)
         announcement = f"\n{preparing}\n\n{joined_var_names}\n\n{line}"
         print(announcement)
-
 
         if WAIT_BEFORE_LAUNCH > 0:
             delay_msg = colorize(dedent("""

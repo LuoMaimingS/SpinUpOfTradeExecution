@@ -107,14 +107,14 @@ class Logger:
         else:
             self.output_dir = None
             self.output_file = None
-        self.first_row=True
+        self.first_row = True
         self.log_headers = []
         self.log_current_row = {}
         self.exp_name = exp_name
 
     def log(self, msg, color='green'):
         """Print a colorized message to stdout."""
-        if proc_id()==0:
+        if proc_id() == 0:
             print(colorize(msg, color, bold=True))
 
     def log_tabular(self, key, val):
@@ -271,7 +271,6 @@ class Logger:
                 # not being able to save the source code.
                 torch.save(self.pytorch_saver_elements, fname)
 
-
     def dump_tabular(self):
         """
         Write all of the diagnostics from the current iteration.
@@ -299,6 +298,7 @@ class Logger:
                 self.output_file.flush()
         self.log_current_row.clear()
         self.first_row=False
+
 
 class EpochLogger(Logger):
     """

@@ -30,8 +30,7 @@ class ExeEnv(gym.Env):
         self.prev_reward = 0.
 
     def reset(self, rolling=True):
-        self.p = self.p + 1 if rolling else self.p
-        if self.p >= self.N: self.p = 0
+        self.p = (self.p + 1) % self.N if rolling else self.p
 
         self.t = 0
         self.offset = 0
@@ -46,7 +45,7 @@ class ExeEnv(gym.Env):
         # self.opt_price = (self.data[self.p][self.offset][8] + self.data[self.p][self.offset][10]) / 2
         self.opt_price = (a + b) / 2
         self.prev_reward = 0.
-        return np.array((self.t, self.I))
+        return np.array((self.T, self.I))
 
     def step(self, action, debug=False):
         # assert isinstance(action, gym.spaces.Box)
@@ -70,7 +69,7 @@ class ExeEnv(gym.Env):
                         else:
                             self.rest_vol = 0
                         self.total_cost += traj_data[temp_off][j] * tmp_vol
-                        if debug: print("买 ", traj_data[temp_off][j], tmp_vol, self.total_cost)
+                        if debug: print(self.t, temp_off, "买 ", traj_data[temp_off][j], tmp_vol, self.total_cost, "剩余 ", self.rest_vol)
                     else:
                         break
 
@@ -93,7 +92,7 @@ class ExeEnv(gym.Env):
                         else:
                             self.rest_vol = 0
                         self.total_cost += traj_data[temp_off][j] * tmp_vol
-                        if debug: print("卖 ", traj_data[temp_off][j], tmp_vol, self.total_cost)
+                        if debug: print(self.t, temp_off, "卖 ", traj_data[temp_off][j], tmp_vol, self.total_cost, "剩余 ", self.rest_vol)
                     else:
                         break
 
@@ -117,7 +116,7 @@ class ExeEnv(gym.Env):
                             else:
                                 self.rest_vol = 0
                             self.total_cost += traj_data[self.offset][j] * tmp_vol
-                            if debug: print("买 ", traj_data[self.offset][j], tmp_vol, self.total_cost)
+                            if debug: print(self.t, self.offset, "强制买 ", traj_data[self.offset][j], tmp_vol, self.total_cost, "剩余 ", self.rest_vol)
                         else:
                             break
                 elif self.dire == 0:
@@ -134,13 +133,12 @@ class ExeEnv(gym.Env):
                             else:
                                 self.rest_vol = 0
                             self.total_cost += traj_data[self.offset][j] * tmp_vol
-                            if debug: print("卖 ", traj_data[self.offset][j], tmp_vol, self.total_cost)
+                            if debug: print(self.t, self.offset, "强制卖 ", traj_data[self.offset][j], tmp_vol, self.total_cost, "剩余 ", self.rest_vol)
                         else:
                             break
 
         traded_vol = self.V - self.rest_vol
         baseline_cost = self.opt_price * traded_vol
-        if debug: print('baseline cost: ', baseline_cost)
         cur_ret = 0
         cost_ratio = 0.
         if baseline_cost != 0:
@@ -152,8 +150,9 @@ class ExeEnv(gym.Env):
         step_reward = cur_ret - self.prev_reward
         self.prev_reward = cur_ret
 
-        i = int(np.ceil(self.rest_vol / self.V) * self.I)
+        i = int(np.ceil(self.rest_vol / self.V * self.I))
         done = (self.t == self.T)
+        if debug and done: print("交易了{} 股, 总花费：{:.2f}，基准：{:.2f}\n".format(traded_vol, self.total_cost, baseline_cost))
         return (self.T - self.t, i), step_reward, done, {'cost': cost_ratio}
 
     def seed(self, seed=None):
@@ -162,7 +161,8 @@ class ExeEnv(gym.Env):
 
 if __name__ == '__main__':
     raw_data = np.load('000012.npz')
-    data = raw_data['data'][:2400]
+    # data = raw_data['data'][:2400]
+    data = raw_data['data'][2400:]
     """
     selected = [2107]
     for t in selected:
@@ -172,23 +172,21 @@ if __name__ == '__main__':
                 print(data[t][i][j], end=' ')
             print("")
     """
-    env = ExeEnv(10000, 2, 4, 4, data)
+    env = ExeEnv(50000, 8, 1, 1, data)
     ob = env.reset()
-    a = env.action_space.sample()
     r = 0
     c = 0
     ep_r = 0
     ct = 0
     for i in range(2400):
         for _ in range(4):
-            ob, rwd, don, info = env.step(0.0)
+            ob, rwd, don, info = env.step(0.0, debug=False)
             r += rwd
             ep_r += rwd
             if don:
                 c += 1
                 ct += info['cost']
                 env.reset()
-                if np.abs(ep_r) > 200: print(i)
                 ep_r = 0
     print(r / c, ct / c)
 

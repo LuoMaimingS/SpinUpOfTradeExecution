@@ -2,6 +2,7 @@ import spinup
 from spinup.user_config import DEFAULT_BACKEND
 from spinup.utils.run_utils import ExperimentGrid
 from spinup.utils.serialization_utils import convert_json
+
 import argparse
 import gym
 import json
@@ -154,6 +155,7 @@ def parse_and_execute_grid_search(cmd, args):
     # Special handling for environment: make sure that env_name is a real,
     # registered gym environment.
     valid_envs = [e.id for e in list(gym.envs.registry.all())]
+    valid_envs = valid_envs + ["td"]
     assert 'env_name' in arg_dict, \
         friendly_err("You did not give a value for --env_name! Add one and try again.")
     for env_name in arg_dict['env_name']:
@@ -172,10 +174,9 @@ def parse_and_execute_grid_search(cmd, args):
             """%env_name)
         assert env_name in valid_envs, err_msg
 
-
     # Construct and execute the experiment grid.
     eg = ExperimentGrid(name=exp_name)
-    for k,v in arg_dict.items():
+    for k, v in arg_dict.items():
         eg.add(k, v, shorthand=given_shorthands.get(k))
     eg.run(algo, **run_kwargs)
 
