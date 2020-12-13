@@ -58,6 +58,8 @@ def load_policy_and_env(fpath, itr='last', deterministic=False):
     try:
         state = joblib.load(osp.join(fpath, 'vars'+itr+'.pkl'))
         env = state['env']
+        env.mode = "eval"
+        env.first_reset = True
     except:
         env = None
 
@@ -107,7 +109,7 @@ def load_pytorch_policy(fpath, itr, deterministic=False):
     return get_action
 
 
-def run_policy(env, get_action, max_ep_len=None, num_episodes=100, render=True):
+def run_policy(env, get_action, max_ep_len=None, num_episodes=100, render=False):
 
     assert env is not None, \
         "Environment not found!\n\n It looks like the environment wasn't saved, " + \
@@ -116,23 +118,28 @@ def run_policy(env, get_action, max_ep_len=None, num_episodes=100, render=True):
 
     logger = EpochLogger()
     o, r, d, ep_ret, ep_len, n = env.reset(), 0, False, 0, 0, 0
+    num_episodes = env.data.shape[0]
+    print('Preparing To Test, Num Episodes: {}'.format(num_episodes))
     while n < num_episodes:
         if render:
-            env.render()
-            time.sleep(1e-3)
+            pass
+            # env.render()
+            # time.sleep(1e-3)
 
         a = get_action(o)
-        o, r, d, _ = env.step(a)
+        o, r, d, info = env.step(a)
         ep_ret += r
         ep_len += 1
 
         if d or (ep_len == max_ep_len):
-            logger.store(EpRet=ep_ret, EpLen=ep_len)
-            print('Episode %d \t EpRet %.3f \t EpLen %d'%(n, ep_ret, ep_len))
+            cost = info['cost']
+            logger.store(EpRet=ep_ret, EpLen=ep_len, EpCost=cost)
+            # print('Episode %d \t EpRet %.3f \t EpLen %d'%(n, ep_ret, ep_len))
             o, r, d, ep_ret, ep_len = env.reset(), 0, False, 0, 0
             n += 1
 
     logger.log_tabular('EpRet', with_min_and_max=True)
+    logger.log_tabular('EpCost', with_min_and_max=True)
     logger.log_tabular('EpLen', average_only=True)
     logger.dump_tabular()
 

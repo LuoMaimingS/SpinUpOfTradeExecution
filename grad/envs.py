@@ -3,18 +3,24 @@ import numpy as np
 
 
 class ExeEnv(gym.Env):
-    def __init__(self, V, H, T, I, data, dire=1):
+    def __init__(self, V, H, T, I, data, dire=1, mode="train"):
         self.V = V
         self.H = H
         self.T = T
         self.I = I
-        self.data = data
+        self.raw_data = data
+        self.mode = mode
+        if mode == "train":
+            self.data = data[:2400]
+        else:
+            assert mode == "eval"
+            self.data = data[2400:]
         self.dire = dire
-        self.N = data.shape[0]
+        self.N = self.data.shape[0]
         length = H * 20
         self.interval = int(length / T)
-        print(self.interval)
-        print("Initializing Executing Environment, {} trajectories.".format(self.N))
+
+        self.first_reset = True
 
         self.observation_space = gym.spaces.Box(low=0, high=T, shape=(2,))
         self.action_space = gym.spaces.Box(-0.05, 0.05, (1,))
@@ -30,7 +36,15 @@ class ExeEnv(gym.Env):
         self.prev_reward = 0.
 
     def reset(self, rolling=True):
-        self.p = (self.p + 1) % self.N if rolling else self.p
+        if self.mode == "eval" and self.N == 2400:
+            self.data = self.raw_data[2400:]
+            self.N = self.data.shape[0]
+        if self.first_reset:
+            print("First Reset Executing Environment, {} trajectories, interval: {}.".format(self.N, self.interval))
+            self.first_reset = False
+            self.p = 0
+        else:
+            self.p = (self.p + 1) % self.N if rolling else self.p
 
         self.t = 0
         self.offset = 0
@@ -179,7 +193,7 @@ if __name__ == '__main__':
     ep_r = 0
     ct = 0
     for i in range(2400):
-        for _ in range(4):
+        for _ in range(1):
             ob, rwd, don, info = env.step(0.0, debug=False)
             r += rwd
             ep_r += rwd
@@ -188,11 +202,7 @@ if __name__ == '__main__':
                 ct += info['cost']
                 env.reset()
                 ep_r = 0
-    print(r / c, ct / c)
-
-
-
-
+    print(c, r / c, ct / c)
 
 
 

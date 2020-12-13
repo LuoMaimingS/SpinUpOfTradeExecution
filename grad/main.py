@@ -1,28 +1,57 @@
 import numpy as np
 from excutes import *
+from envs import ExeEnv
 
 
-def load(sym, split="train"):
+def load(sym):
     file_name = sym + ".npz"
     raw_data = np.load(file_name)
     data = raw_data['data']
-    if split == "train":
-        data = data[:2400]
-    elif split == "eval":
-        data = data[2400:]
-    else:
-        raise NotImplementedError
     print(data.shape)
     return data
 
 
+def excuteSLInEnv(V, H,
+                  data,
+                  dire=1):
+    env = ExeEnv(V, H, 1, 1, data, dire, mode="train")
+    env.reset()
+    r1, count1, cost1 = 0, 0, 0
+    for i in range(env.data.shape[0]):
+        ob, rwd, don, info = env.step(0.0, debug=False)
+        assert don
+        if don:
+            count1 += 1
+            r1 += rwd
+            cost1 += info["cost"] * 10000
+            env.reset()
+
+    env.mode = "eval"
+    env.first_reset = False
+    env.reset()
+    r2, count2, cost2 = 0, 0, 0
+    for i in range(env.data.shape[0]):
+        ob, rwd, don, info = env.step(0.0, debug=False)
+        assert don
+        if don:
+            count2 += 1
+            r2 += rwd
+            cost2 += info["cost"] * 10000
+            env.reset()
+
+    return r1 / count1, cost1 / count1, r2 / count2, cost2 / count2
+
+
 def main():
     data = load('000012')
-    sl1 = execute(5000, 8, 4, 4, data)
-    sl2 = execute(5000, 2, 4, 4, data)
-    sl3 = execute(10000, 8, 4, 4, data)
-    sl4 = execute(10000, 2, 4, 4, data)
-    print(sl1, sl2, sl3, sl4)
+    sl11, c11, sl12, c12 = excuteSLInEnv(50000, 8, data)
+    sl21, c21, sl22, c22 = excuteSLInEnv(50000, 2, data)
+    sl31, c31, sl32, c32 = excuteSLInEnv(100000, 8, data)
+    sl41, c41, sl42, c42 = excuteSLInEnv(100000, 2, data)
+    print("50K 8min: MeanReward: {:.2f} {:.2f} MeanCost: {:.2f} {:.2f}".format(sl11, c11, sl12, c12 ))
+    print("50K 2min: MeanReward: {:.2f} {:.2f} MeanCost: {:.2f} {:.2f}".format(sl21, c21, sl22, c22))
+    print("100K 8min: MeanReward: {:.2f} {:.2f} MeanCost: {:.2f} {:.2f}".format(sl31, c31, sl32, c32))
+    print("100K 2min: MeanReward: {:.2f} {:.2f} MeanCost: {:.2f} {:.2f}".format(sl41, c41, sl42, c42))
 
 
 def execute(V, H,
@@ -38,6 +67,7 @@ def execute(V, H,
     :param strategy:
     :return:
     """
+
     if strategy == "S&L":
         cost = executeSL(V, H, T, I, data)
         return cost
@@ -47,3 +77,4 @@ def execute(V, H,
 
 if __name__ == '__main__':
     main()
+
