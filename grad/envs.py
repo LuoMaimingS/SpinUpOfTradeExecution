@@ -9,6 +9,7 @@ class ExeEnv(gym.Env):
         self.T = T
         self.I = I
         self.raw_data = data
+        print(self.raw_data[2400][0])
         self.mode = mode
         if mode == "train":
             self.data = data[:2400]
@@ -22,7 +23,7 @@ class ExeEnv(gym.Env):
 
         self.first_reset = True
 
-        self.observation_space = gym.spaces.Box(low=0, high=T, shape=(2,))
+        self.observation_space = gym.spaces.Box(low=0, high=10, shape=(4,))
         self.action_space = gym.spaces.Box(-0.05, 0.05, (1,))
 
         self.p = -1
@@ -52,14 +53,15 @@ class ExeEnv(gym.Env):
         self.base_cost = 0.
         self.total_cost = 0.
 
-        a = self.data[self.p][self.offset][10]
-        if self.data[self.p][self.offset][8] != 0: a = self.data[self.p][self.offset][8]
-        b = self.data[self.p][self.offset][8]
-        if self.data[self.p][self.offset][10] != 0: b = self.data[self.p][self.offset][10]
+        cur_lob = self.data[self.p][self.offset]
+        a = cur_lob[10]
+        if cur_lob[8] != 0: a = cur_lob[8]
+        b = cur_lob[8]
+        if cur_lob[10] != 0: b = cur_lob[10]
         # self.opt_price = (self.data[self.p][self.offset][8] + self.data[self.p][self.offset][10]) / 2
         self.opt_price = (a + b) / 2
         self.prev_reward = 0.
-        return np.array((self.T, self.I))
+        return np.array((self.T, self.I, min((cur_lob[8] - cur_lob[10]) * 100, 10), 0))
 
     def step(self, action, debug=False):
         # assert isinstance(action, gym.spaces.Box)
@@ -167,7 +169,12 @@ class ExeEnv(gym.Env):
         i = int(np.ceil(self.rest_vol / self.V * self.I))
         done = (self.t == self.T)
         if debug and done: print("交易了{} 股, 总花费：{:.2f}，基准：{:.2f}\n".format(traded_vol, self.total_cost, baseline_cost))
-        return (self.T - self.t, i), step_reward, done, {'cost': cost_ratio}
+        if self.dire == 1:
+            delta_opt = traj_data[self.offset][8] - self.opt_price
+        else:
+            delta_opt = self.opt_price - traj_data[self.offset][10]
+        return (self.T - self.t, i, min((traj_data[self.offset][8] - traj_data[self.offset][10]) * 100, 10),
+                min(delta_opt * 100, 10)), step_reward, done, {'cost': cost_ratio}
 
     def seed(self, seed=None):
         pass
@@ -176,7 +183,7 @@ class ExeEnv(gym.Env):
 if __name__ == '__main__':
     raw_data = np.load('000012.npz')
     # data = raw_data['data'][:2400]
-    data = raw_data['data'][2400:]
+    data = raw_data['data']
     """
     selected = [2107]
     for t in selected:
@@ -186,15 +193,18 @@ if __name__ == '__main__':
                 print(data[t][i][j], end=' ')
             print("")
     """
-    env = ExeEnv(50000, 8, 1, 1, data)
+    env = ExeEnv(50000, 8, 4, 4, data)
+    """
     ob = env.reset()
+    print(ob)
     r = 0
     c = 0
     ep_r = 0
     ct = 0
-    for i in range(2400):
-        for _ in range(1):
-            ob, rwd, don, info = env.step(0.0, debug=False)
+    for i in range(40):
+        for _ in range(4):
+            ob, rwd, don, info = env.step(0.0)
+            print(ob)
             r += rwd
             ep_r += rwd
             if don:
@@ -203,6 +213,7 @@ if __name__ == '__main__':
                 env.reset()
                 ep_r = 0
     print(c, r / c, ct / c)
+    """
 
 
 

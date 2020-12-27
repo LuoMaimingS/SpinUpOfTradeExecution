@@ -14,11 +14,11 @@ def load(sym):
 def excuteSLInEnv(V, H,
                   data,
                   dire=1):
+    debugFlag = True
     env = ExeEnv(V, H, 1, 1, data, dire, mode="train")
-    env.reset()
     r1, count1, cost1 = 0, 0, 0
     for i in range(env.data.shape[0]):
-        ob, rwd, don, info = env.step(0.0, debug=False)
+        ob, rwd, don, info = env.step(0.00, debug=True)
         assert don
         if don:
             count1 += 1
@@ -31,7 +31,7 @@ def excuteSLInEnv(V, H,
     env.reset()
     r2, count2, cost2 = 0, 0, 0
     for i in range(env.data.shape[0]):
-        ob, rwd, don, info = env.step(0.0, debug=False)
+        ob, rwd, don, info = env.step(0.0, debug=True)
         assert don
         if don:
             count2 += 1
@@ -43,7 +43,7 @@ def excuteSLInEnv(V, H,
 
 
 def main():
-    data = load('000012')
+    data = load('000025')
     sl11, c11, sl12, c12 = excuteSLInEnv(50000, 8, data)
     sl21, c21, sl22, c22 = excuteSLInEnv(50000, 2, data)
     sl31, c31, sl32, c32 = excuteSLInEnv(100000, 8, data)
