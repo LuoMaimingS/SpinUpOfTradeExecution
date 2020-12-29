@@ -14,11 +14,15 @@ def load(sym):
 def excuteSLInEnv(V, H,
                   data,
                   dire=1):
-    debugFlag = True
-    env = ExeEnv(V, H, 1, 1, data, dire, mode="train")
+    debugFlag = False
+    T = 1
+    env = ExeEnv(V, H, T, T, data, dire, mode="train")
     r1, count1, cost1 = 0, 0, 0
     for i in range(env.data.shape[0]):
-        ob, rwd, don, info = env.step(0.00, debug=True)
+        rwd = 0
+        for _ in range(T):
+            _, temp_r, don, info = env.step(0.00, debug=debugFlag)
+            rwd += temp_r
         assert don
         if don:
             count1 += 1
@@ -31,7 +35,10 @@ def excuteSLInEnv(V, H,
     env.reset()
     r2, count2, cost2 = 0, 0, 0
     for i in range(env.data.shape[0]):
-        ob, rwd, don, info = env.step(0.0, debug=True)
+        rwd = 0
+        for _ in range(T):
+            _, temp_r, don, info = env.step(0.00, debug=debugFlag)
+            rwd += temp_r
         assert don
         if don:
             count2 += 1
@@ -43,16 +50,22 @@ def excuteSLInEnv(V, H,
 
 
 def main():
-    data = load('000025')
-    sl11, c11, sl12, c12 = excuteSLInEnv(50000, 8, data)
-    sl21, c21, sl22, c22 = excuteSLInEnv(50000, 2, data)
-    sl31, c31, sl32, c32 = excuteSLInEnv(100000, 8, data)
-    sl41, c41, sl42, c42 = excuteSLInEnv(100000, 2, data)
-    print("50K 8min: MeanReward: {:.2f} {:.2f} MeanCost: {:.2f} {:.2f}".format(sl11, c11, sl12, c12 ))
-    print("50K 2min: MeanReward: {:.2f} {:.2f} MeanCost: {:.2f} {:.2f}".format(sl21, c21, sl22, c22))
-    print("100K 8min: MeanReward: {:.2f} {:.2f} MeanCost: {:.2f} {:.2f}".format(sl31, c31, sl32, c32))
-    print("100K 2min: MeanReward: {:.2f} {:.2f} MeanCost: {:.2f} {:.2f}".format(sl41, c41, sl42, c42))
+    data = load('000012')
+    rtrain_58, ctrain_58, rtest_58, ctest_58 = excuteSLInEnv(50000, 8, data)
+    rtrain_54, ctrain_54, rtest_54, ctest_54 = excuteSLInEnv(50000, 4, data)
+    rtrain_52, ctrain_52, rtest_52, ctest_52 = excuteSLInEnv(50000, 2, data)
+    
+    rtrain_18, ctrain_18, rtest_18, ctest_18 = excuteSLInEnv(100000, 8, data)
+    rtrain_14, ctrain_14, rtest_14, ctest_14 = excuteSLInEnv(100000, 4, data)
+    rtrain_12, ctrain_12, rtest_12, ctest_12 = excuteSLInEnv(100000, 2, data)
+    
+    print("50K 8min: Training Set: {:.2f} {:.2f} Test Set: {:.2f} {:.2f}".format(rtrain_58, ctrain_58, rtest_58, ctest_58))
+    print("50K 4min: Training Set: {:.2f} {:.2f} Test Set: {:.2f} {:.2f}".format(rtrain_54, ctrain_54, rtest_54, ctest_54))
+    print("50K 2min: Training Set: {:.2f} {:.2f} Test Set: {:.2f} {:.2f}".format(rtrain_52, ctrain_52, rtest_52, ctest_52))
 
+    print("100K 8min: Training Set: {:.2f} {:.2f} Test Set: {:.2f} {:.2f}".format(rtrain_18, ctrain_18, rtest_18, ctest_18))
+    print("100K 4min: Training Set: {:.2f} {:.2f} Test Set: {:.2f} {:.2f}".format(rtrain_14, ctrain_14, rtest_14, ctest_14))
+    print("100K 2min: Training Set: {:.2f} {:.2f} Test Set: {:.2f} {:.2f}".format(rtrain_12, ctrain_12, rtest_12, ctest_12))
 
 def execute(V, H,
             T, I,

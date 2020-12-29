@@ -9,7 +9,6 @@ class ExeEnv(gym.Env):
         self.T = T
         self.I = I
         self.raw_data = data
-        print(self.raw_data[2400][0])
         self.mode = mode
         if mode == "train":
             self.data = data[:2400]
@@ -36,10 +35,11 @@ class ExeEnv(gym.Env):
         self.opt_price = 0.
         self.prev_reward = 0.
 
-    def reset(self, rolling=True):
+    def reset(self, rolling=True, debug=False):
         if self.mode == "eval" and self.N == 2400:
             self.data = self.raw_data[2400:]
             self.N = self.data.shape[0]
+            self.first_reset = True
         if self.first_reset:
             print("First Reset Executing Environment, {} trajectories, interval: {}.".format(self.N, self.interval))
             self.first_reset = False
@@ -61,6 +61,7 @@ class ExeEnv(gym.Env):
         # self.opt_price = (self.data[self.p][self.offset][8] + self.data[self.p][self.offset][10]) / 2
         self.opt_price = (a + b) / 2
         self.prev_reward = 0.
+        if debug: print(self.data.shape, self.N, self.p)
         return np.array((self.T, self.I, min((cur_lob[8] - cur_lob[10]) * 100, 10), 0))
 
     def step(self, action, debug=False):
@@ -135,6 +136,10 @@ class ExeEnv(gym.Env):
                             if debug: print(self.t, self.offset, "强制买 ", traj_data[self.offset][j], tmp_vol, self.total_cost, "剩余 ", self.rest_vol)
                         else:
                             break
+                    if self.rest_vol > 0 and traj_data[self.offset][0] > 0:
+                        self.total_cost += (traj_data[self.offset][0] + 0.01) * self.rest_vol
+                        if debug: print(self.t, self.offset, "虚拟强制买 ", traj_data[self.offset][0] + 0.01, self.rest_vol, self.total_cost)
+                        self.rest_vol = 0
                 elif self.dire == 0:
                     limit_p = 0
                     for j in [10, 12, 14, 16, 18]:
@@ -152,6 +157,10 @@ class ExeEnv(gym.Env):
                             if debug: print(self.t, self.offset, "强制卖 ", traj_data[self.offset][j], tmp_vol, self.total_cost, "剩余 ", self.rest_vol)
                         else:
                             break
+                    if self.rest_vol > 0 and traj_data[self.offset][18] > 0:
+                        self.total_cost += (traj_data[self.offset][18] - 0.01) * self.rest_vol
+                        if debug: print(self.t, self.offset, "虚拟强制卖 ", traj_data[self.offset][18] - 0.01, self.rest_vol, self.total_cost)
+                        self.rest_vol = 0
 
         traded_vol = self.V - self.rest_vol
         baseline_cost = self.opt_price * traded_vol
